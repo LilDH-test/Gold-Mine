@@ -39,6 +39,10 @@ public class MatchController : MonoBehaviour
     private List<PumpController> activePumps = new List<PumpController>();
     private Transform entityRoot;
 
+    // ---- Match mode ----
+    public enum MatchMode { AI, LanHost, LanClient }
+    public MatchMode CurrentMode { get; private set; } = MatchMode.AI;
+
     // ---- Events for UI ----
     public event System.Action OnMatchStart;
     public event System.Action<bool> OnMatchEnd; // true = player won
@@ -51,6 +55,26 @@ public class MatchController : MonoBehaviour
 
     // ---- Public API called by MenuUI ----
     public void StartMatch()
+    {
+        CurrentMode = MatchMode.AI;
+        StartMatchInternal();
+    }
+
+    /// <summary>Host starts a LAN match. AI is disabled; enemy is the remote player.</summary>
+    public void StartLanHostMatch()
+    {
+        CurrentMode = MatchMode.LanHost;
+        StartMatchInternal();
+    }
+
+    /// <summary>Client starts a local visual match. No AI, no energy update for enemy.</summary>
+    public void StartLanClientMatch()
+    {
+        CurrentMode = MatchMode.LanClient;
+        StartMatchInternal();
+    }
+
+    private void StartMatchInternal()
     {
         // Clear old entities
         ClearEntities();
@@ -76,8 +100,17 @@ public class MatchController : MonoBehaviour
 
         float dt = Time.deltaTime;
 
-        UpdateEnergy(dt);
-        ai?.Tick(State, dt);
+        // Energy: host and AI mode update locally; client gets energy from sync
+        if (CurrentMode != MatchMode.LanClient)
+        {
+            UpdateEnergy(dt);
+        }
+
+        // AI only runs in AI mode
+        if (CurrentMode == MatchMode.AI)
+        {
+            ai?.Tick(State, dt);
+        }
 
         // Update king locked state
         UpdateKingLock();
@@ -85,8 +118,11 @@ public class MatchController : MonoBehaviour
         // Clean dead units & pumps
         CleanDeadEntities();
 
-        // Check game over
-        CheckGameOver();
+        // Check game over (host and AI only — client receives game over via message)
+        if (CurrentMode != MatchMode.LanClient)
+        {
+            CheckGameOver();
+        }
 
         // Update HUD
         hud?.UpdateHUD(State);
@@ -279,6 +315,23 @@ public class MatchController : MonoBehaviour
         if (party.hand.Count == 0) return;
 
         var card = party.hand[party.selectedIndex];
+
+        // LAN Client: send command to host, don't execute locally
+        if (CurrentMode == MatchMode.LanClient)
+        {
+            if (party.energy < card.cost) return; // optimistic check
+
+            var msg = new NetMessages.PlayCardMsg
+            {
+                cardId = card.id,
+                lane = lane,
+                handIndex = party.selectedIndex
+            };
+            LanManager.Instance?.SendMessage(msg);
+            return;
+        }
+
+        // AI or Host mode: execute locally
         if (!party.TrySpend(card.cost)) return;
 
         if (card.type == CardDatabase.CardType.Unit)

@@ -43,6 +43,9 @@ public class MenuUI : MonoBehaviour
     [Header("Credits")]
     public Button btnCreditsBack;
 
+    [Header("LAN")]
+    public LanLobbyUI lanLobbyUI;
+
     private void Start()
     {
         // Wire up buttons
@@ -93,6 +96,10 @@ public class MenuUI : MonoBehaviour
         settingsPanel?.SetActive(activeScreen == settingsPanel);
         creditsPanel?.SetActive(activeScreen == creditsPanel);
 
+        // Hide LAN lobby when switching to other screens
+        if (lanLobbyUI != null && activeScreen != null)
+            lanLobbyUI.gameObject.SetActive(false);
+
         // Hide HUD and battlefield when in menus
         if (hudObject != null)
             hudObject.SetActive(activeScreen == null);
@@ -116,8 +123,17 @@ public class MenuUI : MonoBehaviour
     // ---- Button handlers ----
     private void OnPlayOnline()
     {
-        // Placeholder
-        Debug.Log("Online play not available in this build.");
+        // Open LAN lobby
+        if (lanLobbyUI != null)
+        {
+            SetScreen(null); // hide menu panels
+            mainMenuPanel?.SetActive(false);
+            lanLobbyUI.ShowLobby();
+        }
+        else
+        {
+            Debug.Log("LAN lobby UI not assigned.");
+        }
     }
 
     private void OnPlayAI()
