@@ -218,9 +218,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Contact
 
-- Discord: [Join Server]
-- Twitter: [@GoldMineGame]
-- Email: contact@goldmine.dev
+- Twitter: [@DHLilDH1]
+- Email: dh@starmc.net / lbisho@student.sisd.net
 
 ## 🎨 Design Philosophy
 
@@ -233,3 +232,5 @@ Gold Mine embraces retro 8-bit aesthetic while delivering modern gameplay. Every
 ---
 
 **Made with ❤️ and lots of pixels** ✨
+
+**A Solar Spire Creation**
