@@ -112,8 +112,8 @@ public class MatchController : MonoBehaviour
             ai?.Tick(State, dt);
         }
 
-        // Update king locked state
-        UpdateKingLock();
+        // Update king locked state (guarded)
+        if (State != null) UpdateKingLock();
 
         // Clean dead units & pumps
         CleanDeadEntities();
@@ -346,11 +346,24 @@ public class MatchController : MonoBehaviour
     // ---- King lock visuals ----
     private void UpdateKingLock()
     {
-        bool playerKingOpen = State.KingUnlocked("player");
-        bool enemyKingOpen = State.KingUnlocked("enemy");
+        if (State == null) return;
 
-        State.playerKing?.SetKingLocked(!playerKingOpen);
-        State.enemyKing?.SetKingLocked(!enemyKingOpen);
+        // Inline all checks — no method calls that could NRE
+        bool pLeftDead = true;
+        bool pRightDead = true;
+        bool eLeftDead = true;
+        bool eRightDead = true;
+
+        try { pLeftDead  = State.playerLeftTower  == null || !State.playerLeftTower.IsAlive;  } catch { }
+        try { pRightDead = State.playerRightTower == null || !State.playerRightTower.IsAlive; } catch { }
+        try { eLeftDead  = State.enemyLeftTower   == null || !State.enemyLeftTower.IsAlive;   } catch { }
+        try { eRightDead = State.enemyRightTower  == null || !State.enemyRightTower.IsAlive;  } catch { }
+
+        bool playerKingOpen = pLeftDead && pRightDead;
+        bool enemyKingOpen  = eLeftDead && eRightDead;
+
+        try { if (State.playerKing != null) State.playerKing.SetKingLocked(!playerKingOpen); } catch { }
+        try { if (State.enemyKing  != null) State.enemyKing.SetKingLocked(!enemyKingOpen);  } catch { }
     }
 
     // ---- Cleanup ----

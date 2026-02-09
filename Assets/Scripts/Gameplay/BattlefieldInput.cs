@@ -1,8 +1,12 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.EnhancedTouch;
+using Touch = UnityEngine.InputSystem.EnhancedTouch.Touch;
 
 /// <summary>
 /// BattlefieldInput — Handles tap/click on the battlefield.
 /// Determines which lane was tapped and tells MatchController to play the selected card.
+/// Uses the new Input System package.
 /// </summary>
 public class BattlefieldInput : MonoBehaviour
 {
@@ -11,6 +15,12 @@ public class BattlefieldInput : MonoBehaviour
     private void Start()
     {
         mainCam = Camera.main;
+        EnhancedTouchSupport.Enable();
+    }
+
+    private void OnDestroy()
+    {
+        EnhancedTouchSupport.Disable();
     }
 
     private void Update()
@@ -18,16 +28,16 @@ public class BattlefieldInput : MonoBehaviour
         if (MatchController.Instance == null) return;
         if (MatchController.Instance.State.isGameOver) return;
 
-        // Mouse / touch
-        if (Input.GetMouseButtonDown(0))
+        // Mouse click (new Input System)
+        if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
         {
-            HandleTap(Input.mousePosition);
+            HandleTap(Mouse.current.position.ReadValue());
         }
 
-        // Mobile touch
-        if (Input.touchCount > 0 && Input.GetTouch(0).phase == TouchPhase.Began)
+        // Touch (new Input System)
+        if (Touch.activeFingers.Count > 0 && Touch.activeFingers[0].currentTouch.phase == UnityEngine.InputSystem.TouchPhase.Began)
         {
-            HandleTap(Input.GetTouch(0).position);
+            HandleTap(Touch.activeFingers[0].currentTouch.screenPosition);
         }
     }
 
