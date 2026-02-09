@@ -2,30 +2,32 @@ using UnityEngine;
 using System.Collections.Generic;
 
 /// <summary>
-/// GameManager - Core singleton managing game state, progression, and flow
+/// GameManager — Persistent singleton managing save/load, progression, and owned cards.
+/// Dictionary is serialized manually since JsonUtility doesn't support it.
 /// </summary>
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
 
+    // ---- Serializable save wrapper ----
     [System.Serializable]
-    public class PlayerData
+    private class SavePayload
     {
-        public int level = 1;
-        public int xp = 0;
-        public int gold = 0;
-        public Dictionary<string, bool> ownedCards = new Dictionary<string, bool>();
-        public GameSettings settings = new GameSettings();
+        public int xp;
+        public int gold;
+        public float musicVolume;
+        public float sfxVolume;
+        public List<string> ownedCardIds = new List<string>();
     }
 
-    [System.Serializable]
-    public class GameSettings
-    {
-        public float musicVolume = 0.6f;
-        public float sfxVolume = 0.8f;
-    }
+    // ---- Runtime player data ----
+    public int xp { get; set; }
+    public int gold { get; set; }
+    public float musicVolume { get; set; } = 0.6f;
+    public float sfxVolume { get; set; } = 0.8f;
 
-    public PlayerData playerData { get; private set; }
+    private HashSet<string> ownedCards = new HashSet<string>();
+
     private const string SAVE_KEY = "goldmine_save_v2";
 
     private void Awake()
@@ -35,37 +37,57 @@ public class GameManager : MonoBehaviour
             Destroy(gameObject);
             return;
         }
-
         Instance = this;
         DontDestroyOnLoad(gameObject);
-
         LoadGame();
     }
 
+    // ---- Save / Load ----
     public void LoadGame()
     {
         string json = PlayerPrefs.GetString(SAVE_KEY, "");
-        if (string.IsNullOrEmpty(json))
+        if (!string.IsNullOrEmpty(json))
         {
-            playerData = new PlayerData();
+            var p = JsonUtility.FromJson<SavePayload>(json);
+            xp = p.xp;
+            gold = p.gold;
+            musicVolume = p.musicVolume;
+            sfxVolume = p.sfxVolume;
+            ownedCards = new HashSet<string>(p.ownedCardIds);
         }
         else
         {
-            playerData = JsonUtility.FromJson<PlayerData>(json);
+            xp = 0;
+            gold = 0;
+            ownedCards = new HashSet<string>();
         }
+
+        // Auto-own basic cards
+        foreach (var c in CardDatabase.BasicCards)
+            ownedCards.Add(c.id);
     }
 
     public void SaveGame()
     {
-        string json = JsonUtility.ToJson(playerData);
-        PlayerPrefs.SetString(SAVE_KEY, json);
+        var p = new SavePayload
+        {
+            xp = this.xp,
+            gold = this.gold,
+            musicVolume = this.musicVolume,
+            sfxVolume = this.sfxVolume,
+            ownedCardIds = new List<string>(ownedCards)
+        };
+        PlayerPrefs.SetString(SAVE_KEY, JsonUtility.ToJson(p));
         PlayerPrefs.Save();
     }
 
-    public int GetLevelFromXP(int xp)
+    // ---- Level / XP helpers ----
+    public int CurrentLevel => GetLevelFromXP(xp);
+
+    public int GetLevelFromXP(int totalXp)
     {
         int level = 1;
-        int remaining = xp;
+        int remaining = totalXp;
         while (remaining >= XpForNextLevel(level) && level < 99)
         {
             remaining -= XpForNextLevel(level);
@@ -79,40 +101,61 @@ public class GameManager : MonoBehaviour
         return Mathf.FloorToInt(120 * Mathf.Pow(level, 1.22f));
     }
 
-    public void AwardMatch(bool won)
+    public void GetLevelProgress(out int level, out int xpInto, out int xpNeeded)
     {
-        int level = GetLevelFromXP(playerData.xp);
+        level = 1;
+        int remaining = xp;
+        int need = XpForNextLevel(level);
+        while (remaining >= need && level < 99)
+        {
+            remaining -= need;
+            level++;
+            need = XpForNextLevel(level);
+        }
+        xpInto = remaining;
+        xpNeeded = need;
+    }
+
+    /// <summary>Award XP/Gold after a match. Returns (xpGain, goldGain).</summary>
+    public (int xpGain, int goldGain) AwardMatch(bool won)
+    {
+        int level = CurrentLevel;
         int xpGain = won ? Mathf.FloorToInt(45 + level * 6) : Mathf.FloorToInt(18 + level * 3);
         int goldGain = won ? Mathf.FloorToInt(60 + level * 10) : 0;
-
-        playerData.xp += xpGain;
-        playerData.gold += goldGain;
+        xp += xpGain;
+        gold += goldGain;
         SaveGame();
+        return (xpGain, goldGain);
     }
 
-    public void AddGold(int amount)
+    // ---- Gold helpers ----
+    public bool CanAfford(int amount) => gold >= amount;
+
+    public bool SpendGold(int amount)
     {
-        playerData.gold += amount;
+        if (gold < amount) return false;
+        gold -= amount;
         SaveGame();
+        return true;
     }
 
-    public void SpendGold(int amount)
-    {
-        playerData.gold -= Mathf.Max(0, amount);
-        SaveGame();
-    }
-
+    // ---- Card ownership ----
     public void OwnCard(string cardId)
     {
-        if (!playerData.ownedCards.ContainsKey(cardId))
-        {
-            playerData.ownedCards[cardId] = true;
-            SaveGame();
-        }
+        ownedCards.Add(cardId);
+        SaveGame();
     }
 
-    public bool IsCardOwned(string cardId)
+    public bool IsCardOwned(string cardId) => ownedCards.Contains(cardId);
+
+    public List<CardDatabase.CardDef> GetOwnedCards()
     {
-        return playerData.ownedCards.ContainsKey(cardId) && playerData.ownedCards[cardId];
+        var result = new List<CardDatabase.CardDef>();
+        foreach (var c in CardDatabase.AllCards)
+        {
+            if (ownedCards.Contains(c.id))
+                result.Add(c);
+        }
+        return result;
     }
 }

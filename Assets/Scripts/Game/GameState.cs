@@ -2,120 +2,78 @@ using UnityEngine;
 using System.Collections.Generic;
 
 /// <summary>
-/// GameState - Represents the current match state (units, projectiles, buildings, energy)
+/// GameState — Pure data container for the current match (no MonoBehaviour).
+/// Entities (units, buildings, projectiles) live as GameObjects in the scene;
+/// this class only tracks references and party-level data (energy, hand, deck).
 /// </summary>
 [System.Serializable]
-public class GameState : MonoBehaviour
+public class GameState
 {
+    // ---- Party (player or enemy) energy + hand ----
     [System.Serializable]
     public class PartyState
     {
         public float energy = 5f;
         public float maxEnergy = 10f;
         public float regenRate = 1.0f;
-        public List<CardInstance> hand = new List<CardInstance>();
-        public List<CardInstance> deck = new List<CardInstance>();
-        public int selectedCardIndex = 0;
+        public List<CardDatabase.CardDef> hand = new List<CardDatabase.CardDef>();
+        public List<CardDatabase.CardDef> deckQueue = new List<CardDatabase.CardDef>();
+        public int selectedIndex = 0;
+
+        /// <summary>Spend energy if affordable.</summary>
+        public bool TrySpend(int cost)
+        {
+            if (energy < cost) return false;
+            energy -= cost;
+            return true;
+        }
+
+        public void AddEnergy(float amount)
+        {
+            energy = Mathf.Min(maxEnergy, energy + amount);
+        }
     }
 
-    [System.Serializable]
-    public class CardInstance
-    {
-        public string cardId;
-        public string name;
-        public CardType type;
-        public int cost;
-    }
+    public bool isGameOver;
 
-    public enum CardType { Unit, Pump, Tower }
+    public PartyState player = new PartyState();
+    public PartyState enemy = new PartyState();
 
-    public bool isGameOver { get; set; }
-    public PartyState playerState { get; set; } = new PartyState();
-    public PartyState enemyState { get; set; } = new PartyState();
+    // AI timer
+    public float aiTimer;
+    public float aiInterval = 1.75f;
 
-    public List<Unit> units { get; set; } = new List<Unit>();
-    public List<Projectile> projectiles { get; set; } = new List<Projectile>();
-    public List<Building> buildings { get; set; } = new List<Building>();
+    // ---- References to scene objects (set by MatchController) ----
+    public TowerController playerLeftTower;
+    public TowerController playerRightTower;
+    public TowerController playerKing;
 
-    public Building playerLeftTower { get; set; }
-    public Building playerRightTower { get; set; }
-    public Unit playerKing { get; set; }
+    public TowerController enemyLeftTower;
+    public TowerController enemyRightTower;
+    public TowerController enemyKing;
 
-    public Building enemyLeftTower { get; set; }
-    public Building enemyRightTower { get; set; }
-    public Unit enemyKing { get; set; }
-
+    // ---- Reset ----
     public void ResetMatch()
     {
         isGameOver = false;
-        playerState = new PartyState { energy = 5, maxEnergy = 10, regenRate = 1.0f };
-        enemyState = new PartyState { energy = 5, maxEnergy = 10, regenRate = 1.0f };
-
-        units.Clear();
-        projectiles.Clear();
-        buildings.Clear();
+        player = new PartyState { energy = 5f, maxEnergy = 10f, regenRate = 1.0f };
+        enemy = new PartyState { energy = 5f, maxEnergy = 10f, regenRate = 1.0f };
+        aiTimer = 0f;
+        aiInterval = 1.65f + Random.Range(0f, 0.45f);
     }
 
-    public float GetEnemyPumpEnergyPerSecond()
+    // ---- Tower helpers ----
+    public TowerController[] AllPlayerTowers =>
+        new[] { playerLeftTower, playerRightTower, playerKing };
+
+    public TowerController[] AllEnemyTowers =>
+        new[] { enemyLeftTower, enemyRightTower, enemyKing };
+
+    public bool KingUnlocked(string defenderSide)
     {
-        float eps = 0f;
-        foreach (var building in buildings)
-        {
-            if (building.side == "enemy" && building.alive)
-            {
-                eps += building.energyPerSecond;
-            }
-        }
-        return eps;
+        if (defenderSide == "player")
+            return !playerLeftTower.IsAlive && !playerRightTower.IsAlive;
+        else
+            return !enemyLeftTower.IsAlive && !enemyRightTower.IsAlive;
     }
-
-    public float GetPlayerPumpEnergyPerSecond()
-    {
-        float eps = 0f;
-        foreach (var building in buildings)
-        {
-            if (building.side == "player" && building.alive)
-            {
-                eps += building.energyPerSecond;
-            }
-        }
-        return eps;
-    }
-}
-
-[System.Serializable]
-public class Unit : MonoBehaviour
-{
-    public string side; // "player" or "enemy"
-    public int lane;
-    public float hp;
-    public float maxHp;
-    public float speed;
-    public float damage;
-    public float attacksPerSecond;
-    public float attackRange;
-    public float attackCooldown;
-    public string kind; // "melee" or "ranged"
-    public bool alive = true;
-}
-
-[System.Serializable]
-public class Building : MonoBehaviour
-{
-    public string side; // "player" or "enemy"
-    public int lane;
-    public float hp;
-    public float maxHp;
-    public float energyPerSecond;
-    public bool alive = true;
-}
-
-[System.Serializable]
-public class Projectile : MonoBehaviour
-{
-    public string side;
-    public Vector2 position;
-    public Vector2 velocity;
-    public float damage;
-    public bool alive = true;
 }
