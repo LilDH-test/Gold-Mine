@@ -51,6 +51,39 @@ public class MatchController : MonoBehaviour
     {
         Instance = this;
         State = new GameState();
+        EnsureSprites();
+    }
+
+    /// <summary>Generate colored pixel sprites if none were assigned in the Inspector.</summary>
+    private void EnsureSprites()
+    {
+        if (playerTowerSprite == null) playerTowerSprite = MakeSprite(new Color(0.3f, 0.5f, 0.9f), 16, 20);
+        if (enemyTowerSprite == null)  enemyTowerSprite  = MakeSprite(new Color(0.9f, 0.3f, 0.3f), 16, 20);
+        if (playerKingSprite == null)  playerKingSprite  = MakeSprite(new Color(1f, 0.82f, 0.4f), 20, 24);
+        if (enemyKingSprite == null)   enemyKingSprite   = MakeSprite(new Color(0.7f, 0.15f, 0.15f), 20, 24);
+        if (playerUnitSprite == null)  playerUnitSprite  = MakeSprite(new Color(0.4f, 0.9f, 0.5f), 12, 12);
+        if (enemyUnitSprite == null)   enemyUnitSprite   = MakeSprite(new Color(1f, 0.4f, 0.4f), 12, 12);
+        if (pumpSprite == null)        pumpSprite        = MakeSprite(new Color(0.9f, 0.6f, 0.2f), 14, 18);
+        if (projectileSprite == null)  projectileSprite  = MakeSprite(Color.yellow, 6, 6);
+    }
+
+    private static Sprite MakeSprite(Color color, int w, int h)
+    {
+        var tex = new Texture2D(w, h);
+        var px = new Color[w * h];
+
+        // Simple border for visibility
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                bool border = x == 0 || x == w - 1 || y == 0 || y == h - 1;
+                px[y * w + x] = border ? Color.white : color;
+            }
+
+        tex.SetPixels(px);
+        tex.Apply();
+        tex.filterMode = FilterMode.Point;
+        return Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 16);
     }
 
     // ---- Public API called by MenuUI ----
@@ -90,7 +123,17 @@ public class MatchController : MonoBehaviour
         // Spawn towers & kings
         SpawnBase();
 
+        // Activate HUD and show initial hand
+        if (hud != null)
+        {
+            hud.gameObject.SetActive(true);
+            hud.RefreshHand(State);
+            hud.UpdateHUD(State);
+        }
+
         OnMatchStart?.Invoke();
+
+        Debug.Log($"Match started! Mode={CurrentMode}, Hand={State.player.hand.Count} cards, Deck={State.player.deckQueue.Count}");
     }
 
     // ---- Update loop ----
@@ -112,8 +155,8 @@ public class MatchController : MonoBehaviour
             ai?.Tick(State, dt);
         }
 
-        // Update king locked state (guarded)
-        if (State != null) UpdateKingLock();
+        // Update king locked state
+        UpdateKingLock();
 
         // Clean dead units & pumps
         CleanDeadEntities();
@@ -348,7 +391,6 @@ public class MatchController : MonoBehaviour
     {
         if (State == null) return;
 
-        // Inline all checks — no method calls that could NRE
         bool pLeftDead = true;
         bool pRightDead = true;
         bool eLeftDead = true;
@@ -382,6 +424,15 @@ public class MatchController : MonoBehaviour
             Destroy(entityRoot.gameObject);
             entityRoot = null;
         }
+    }
+
+    /// <summary>Force-end a match (surrender / exit). Counts as a loss with no rewards.</summary>
+    public void ForceEndMatch()
+    {
+        if (State == null) return;
+        State.isGameOver = true;
+        StopAllCoroutines();
+        CleanupEntities();
     }
 
     // ---- Game over ----

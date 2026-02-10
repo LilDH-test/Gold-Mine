@@ -38,7 +38,7 @@ public class CardUI : MonoBehaviour
             typeText.text = card.type.ToString();
 
         if (costText != null)
-            costText.text = $"⚡ {card.cost}";
+            costText.text = $"E: {card.cost}";
 
         if (background != null)
             background.color = isSelected ? selectedColor : normalColor;

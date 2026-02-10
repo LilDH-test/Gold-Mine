@@ -25,6 +25,10 @@ public class HUDManager : MonoBehaviour
     public GameObject cardUIPrefab;
     public TextMeshProUGUI deckCountText;
 
+    [Header("Exit / Surrender")]
+    public Button exitButton;
+    public int exitGoldPenalty = 25;
+
     [Header("Game Over")]
     public GameObject gameOverPanel;
     public TextMeshProUGUI gameOverTitle;
@@ -49,6 +53,71 @@ public class HUDManager : MonoBehaviour
             returnMenuButton.onClick.AddListener(OnReturnMenu);
         if (playAgainButton != null)
             playAgainButton.onClick.AddListener(OnPlayAgain);
+        if (exitButton != null)
+            exitButton.onClick.AddListener(OnExitGame);
+
+        // Fix layout: anchor HUD elements to screen edges so they're visible at any aspect ratio
+        FixLayout();
+    }
+
+    /// <summary>Reposition HUD elements using anchors so they work at any resolution.</summary>
+    private void FixLayout()
+    {
+        // Bottom bar: energy + hand
+        AnchorToBottom(playerEnergyText, 0.02f, 0.14f, 0.18f, 0.18f);
+        AnchorToBottom(energyValueText,  0.20f, 0.14f, 0.50f, 0.18f);
+        AnchorToBottom(deckCountText,    0.75f, 0.14f, 0.98f, 0.18f);
+        AnchorToBottom(selectedCardText, 0.20f, 0.10f, 0.80f, 0.14f);
+
+        // Hand container: anchor to bottom of screen
+        if (handContainer != null)
+        {
+            var rt = handContainer.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                rt.anchorMin = new Vector2(0.05f, 0.0f);
+                rt.anchorMax = new Vector2(0.95f, 0.10f);
+                rt.offsetMin = Vector2.zero;
+                rt.offsetMax = Vector2.zero;
+            }
+        }
+
+        // Top bar: level + enemy energy + exit button
+        AnchorToTop(hudLevelText,    0.02f, 0.92f, 0.15f, 0.98f);
+        AnchorToTop(enemyEnergyText, 0.40f, 0.92f, 0.60f, 0.98f);
+
+        // Exit button: top-right corner
+        if (exitButton != null)
+        {
+            var rt = exitButton.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                rt.anchorMin = new Vector2(0.78f, 0.93f);
+                rt.anchorMax = new Vector2(0.98f, 0.98f);
+                rt.offsetMin = Vector2.zero;
+                rt.offsetMax = Vector2.zero;
+            }
+        }
+    }
+
+    private void AnchorToBottom(TMPro.TextMeshProUGUI text, float xMin, float yMin, float xMax, float yMax)
+    {
+        if (text == null) return;
+        var rt = text.GetComponent<RectTransform>();
+        rt.anchorMin = new Vector2(xMin, yMin);
+        rt.anchorMax = new Vector2(xMax, yMax);
+        rt.offsetMin = Vector2.zero;
+        rt.offsetMax = Vector2.zero;
+    }
+
+    private void AnchorToTop(TMPro.TextMeshProUGUI text, float xMin, float yMin, float xMax, float yMax)
+    {
+        if (text == null) return;
+        var rt = text.GetComponent<RectTransform>();
+        rt.anchorMin = new Vector2(xMin, yMin);
+        rt.anchorMax = new Vector2(xMax, yMax);
+        rt.offsetMin = Vector2.zero;
+        rt.offsetMax = Vector2.zero;
     }
 
     private void OnDestroy()
@@ -163,14 +232,45 @@ public class HUDManager : MonoBehaviour
         }
     }
 
+    private void OnExitGame()
+    {
+        // Apply gold penalty (never go below 0)
+        if (GameManager.Instance != null)
+        {
+            int currentGold = GameManager.Instance.gold;
+            int penalty = Mathf.Min(exitGoldPenalty, currentGold);
+            if (penalty > 0)
+                GameManager.Instance.gold = currentGold - penalty;
+            GameManager.Instance.Save();
+        }
+
+        // Force-end the match as a loss (no XP/gold rewards)
+        if (MatchController.Instance != null)
+            MatchController.Instance.ForceEndMatch();
+
+        // Hide exit button and game over panel, go back to menu
+        if (gameOverPanel != null)
+            gameOverPanel.SetActive(false);
+
+        foreach (var menu in FindObjectsByType<MenuUI>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            menu.gameObject.SetActive(true);
+            menu.ShowMainMenu();
+        }
+        gameObject.SetActive(false);
+    }
+
     private void OnReturnMenu()
     {
         if (gameOverPanel != null)
             gameOverPanel.SetActive(false);
 
-        // Switch to menu UI
-        MenuUI menu = FindAnyObjectByType<MenuUI>();
-        if (menu != null) menu.ShowMainMenu();
+        // Re-enable ALL MenuUI objects and show main menu
+        foreach (var menu in FindObjectsByType<MenuUI>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            menu.gameObject.SetActive(true);
+            menu.ShowMainMenu();
+        }
         gameObject.SetActive(false);
     }
 

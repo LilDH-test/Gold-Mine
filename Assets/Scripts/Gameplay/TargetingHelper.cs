@@ -12,6 +12,8 @@ public static class TargetingHelper
     public static List<Damageable> GetAllTargetsFor(string attackerSide)
     {
         var list = new List<Damageable>();
+        if (MatchController.Instance == null || MatchController.Instance.State == null)
+            return list;
         var state = MatchController.Instance.State;
         string defSide = attackerSide == "player" ? "enemy" : "player";
 

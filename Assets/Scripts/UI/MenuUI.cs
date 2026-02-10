@@ -48,6 +48,9 @@ public class MenuUI : MonoBehaviour
 
     private void Start()
     {
+        // Ensure core singletons exist
+        EnsureCoreObjects();
+
         // Wire up buttons
         btnPlayOnline?.onClick.AddListener(OnPlayOnline);
         btnPlayAI?.onClick.AddListener(OnPlayAI);
@@ -100,9 +103,30 @@ public class MenuUI : MonoBehaviour
         if (lanLobbyUI != null && activeScreen != null)
             lanLobbyUI.gameObject.SetActive(false);
 
-        // Hide HUD and battlefield when in menus
-        if (hudObject != null)
-            hudObject.SetActive(activeScreen == null);
+        // When going to gameplay (activeScreen == null), hide the ENTIRE menu
+        // and show the HUD. When returning to menus, show menu and hide HUD.
+        if (activeScreen == null)
+        {
+            // Hide ALL MenuUI objects in scene (handles duplicates)
+            foreach (var menu in FindObjectsByType<MenuUI>(FindObjectsSortMode.None))
+                menu.gameObject.SetActive(false);
+
+            // Show HUD
+            if (hudObject != null)
+                hudObject.SetActive(true);
+            else
+            {
+                var hud = FindAnyObjectByType<HUDManager>(FindObjectsInactive.Include);
+                if (hud != null) hud.gameObject.SetActive(true);
+            }
+        }
+        else
+        {
+            // Show this menu, hide HUD
+            gameObject.SetActive(true);
+            if (hudObject != null)
+                hudObject.SetActive(false);
+        }
     }
 
     private void RefreshMetaUI()
@@ -141,8 +165,33 @@ public class MenuUI : MonoBehaviour
         // Hide all menu panels
         SetScreen(null);
 
+        // Create MatchController if it doesn't exist
+        if (MatchController.Instance == null)
+        {
+            Debug.Log("Creating MatchController at play time...");
+            var mcGO = new GameObject("MatchController");
+            var mc = mcGO.AddComponent<MatchController>();
+            var ai = mcGO.AddComponent<AIController>();
+            mcGO.AddComponent<BattlefieldInput>();
+            mc.ai = ai;
+
+            var hudMgr = FindAnyObjectByType<HUDManager>();
+            if (hudMgr != null)
+            {
+                mc.hud = hudMgr;
+                if (hudObject == null) hudObject = hudMgr.gameObject;
+            }
+        }
+
         // Start match
-        MatchController.Instance?.StartMatch();
+        if (MatchController.Instance != null)
+        {
+            MatchController.Instance.StartMatch();
+        }
+        else
+        {
+            Debug.LogError("Failed to create MatchController!");
+        }
     }
 
     private void OnShop()
@@ -222,5 +271,60 @@ public class MenuUI : MonoBehaviour
         RenderShop();
 
         if (shopHintText != null) shopHintText.text = "Purchased!";
+    }
+
+    // ---- Auto-create missing core objects so the game works even without running Setup Scene ----
+    private void EnsureCoreObjects()
+    {
+        try
+        {
+            // GameManager
+            if (GameManager.Instance == null)
+            {
+                var gmGO = new GameObject("GameManager");
+                gmGO.AddComponent<GameManager>();
+                Debug.Log("Auto-created GameManager");
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"Failed to create GameManager: {e}");
+        }
+
+        try
+        {
+            // MatchController
+            if (MatchController.Instance == null)
+            {
+                var mcGO = new GameObject("MatchController");
+                var mc = mcGO.AddComponent<MatchController>();
+                var ai = mcGO.AddComponent<AIController>();
+                mcGO.AddComponent<BattlefieldInput>();
+                mc.ai = ai;
+
+                // Wire HUD
+                var hudMgr = FindAnyObjectByType<HUDManager>();
+                if (hudMgr != null)
+                {
+                    mc.hud = hudMgr;
+                    if (hudObject == null) hudObject = hudMgr.gameObject;
+                }
+
+                Debug.Log($"Auto-created MatchController. Instance={MatchController.Instance != null}");
+            }
+            else
+            {
+                // Ensure HUD is wired
+                var mc = MatchController.Instance;
+                if (mc.hud == null)
+                {
+                    mc.hud = FindAnyObjectByType<HUDManager>();
+                }
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"Failed to create MatchController: {e}");
+        }
     }
 }

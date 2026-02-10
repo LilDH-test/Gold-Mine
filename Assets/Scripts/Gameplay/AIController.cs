@@ -75,10 +75,26 @@ public class AIController : MonoBehaviour
 
     private int ChooseLane(GameState state)
     {
-        float leftHP = state.playerLeftTower.IsAlive
-            ? state.playerLeftTower.GetComponent<Damageable>().HpRatio : 0f;
-        float rightHP = state.playerRightTower.IsAlive
-            ? state.playerRightTower.GetComponent<Damageable>().HpRatio : 0f;
+        float leftHP = 0f;
+        float rightHP = 0f;
+
+        try
+        {
+            if (state.playerLeftTower != null && state.playerLeftTower.IsAlive)
+                leftHP = state.playerLeftTower.GetComponent<Damageable>().HpRatio;
+        }
+        catch { }
+
+        try
+        {
+            if (state.playerRightTower != null && state.playerRightTower.IsAlive)
+                rightHP = state.playerRightTower.GetComponent<Damageable>().HpRatio;
+        }
+        catch { }
+
+        // If both dead, pick random
+        if (leftHP <= 0f && rightHP <= 0f)
+            return Random.value < 0.5f ? 0 : 1;
 
         float biasLeft = (leftHP < rightHP) ? 0.62f : 0.38f;
         return Random.value < biasLeft ? 0 : 1;

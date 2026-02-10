@@ -71,19 +71,11 @@ public class GameState
 
     public bool KingUnlocked(string defenderSide)
     {
-        // Use a helper to safely handle destroyed Unity objects
         if (defenderSide == "player")
-            return TowerDead(playerLeftTower) && TowerDead(playerRightTower);
+            return (playerLeftTower == null || !playerLeftTower.IsAlive)
+                && (playerRightTower == null || !playerRightTower.IsAlive);
         else
-            return TowerDead(enemyLeftTower) && TowerDead(enemyRightTower);
-    }
-
-    /// <summary>Returns true if tower is null, destroyed, or dead.</summary>
-    private static bool TowerDead(TowerController t)
-    {
-        // ReferenceEquals catches C# null; == null catches Unity "fake null" (destroyed)
-        if (ReferenceEquals(t, null) || t == null) return true;
-        try { return !t.IsAlive; }
-        catch { return true; }
+            return (enemyLeftTower == null || !enemyLeftTower.IsAlive)
+                && (enemyRightTower == null || !enemyRightTower.IsAlive);
     }
 }

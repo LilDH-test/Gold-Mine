@@ -8,8 +8,8 @@
 # Ignore Mac .DS_Store files
 .DS_Store
 
-# Ignore all .meta files, which are Unity metadata files.
-*.meta
+# Unity .meta files ARE needed for transferring projects — do NOT ignore them
+# *.meta
 
 # Ignore all .*.swp files, which are files created by Vim.
 *.swp
@@ -38,9 +38,7 @@ Thumbs.db
 # Ignore UserSettings
 /UserSettings/
 
-# Ignore Visual Studio files
-.sln
-.csproj
+# Ignore Visual Studio files (but keep .slnx for Unity project reference)
 *.sln
 *.csproj
 .vs/

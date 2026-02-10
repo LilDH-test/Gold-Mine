@@ -26,6 +26,7 @@ public class BattlefieldInput : MonoBehaviour
     private void Update()
     {
         if (MatchController.Instance == null) return;
+        if (MatchController.Instance.State == null) return;
         if (MatchController.Instance.State.isGameOver) return;
 
         // Mouse click (new Input System)
@@ -34,8 +35,8 @@ public class BattlefieldInput : MonoBehaviour
             HandleTap(Mouse.current.position.ReadValue());
         }
 
-        // Touch (new Input System)
-        if (Touch.activeFingers.Count > 0 && Touch.activeFingers[0].currentTouch.phase == UnityEngine.InputSystem.TouchPhase.Began)
+        // Touch (new Input System) — only if enhanced touch is enabled
+        if (EnhancedTouchSupport.enabled && Touch.activeFingers.Count > 0 && Touch.activeFingers[0].currentTouch.phase == UnityEngine.InputSystem.TouchPhase.Began)
         {
             HandleTap(Touch.activeFingers[0].currentTouch.screenPosition);
         }

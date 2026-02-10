@@ -71,9 +71,13 @@ public class UnitController : MonoBehaviour
         }
 
         // Move toward target position
-        var state = MatchController.Instance.State;
+        var mc = MatchController.Instance;
+        if (mc == null || mc.State == null) return;
+        var state = mc.State;
         string defSide = damageable.side == "player" ? "enemy" : "player";
-        bool kingOpen = state.KingUnlocked(defSide);
+
+        bool kingOpen = false;
+        try { kingOpen = state.KingUnlocked(defSide); } catch { }
 
         float targetX = kingOpen ? 0f : GameConstants.LaneX(lane) - GameConstants.ARENA_WIDTH * 0.5f;
         float targetY = damageable.side == "player" ? GameConstants.ENEMY_KING_Y : GameConstants.PLAYER_KING_Y;

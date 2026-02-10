@@ -30,7 +30,7 @@ public class ShopItemUI : MonoBehaviour
             nameText.text = card.name;
 
         if (typeAndCostText != null)
-            typeAndCostText.text = $"{card.type} • ⚡ {card.cost}";
+            typeAndCostText.text = $"{card.type} - E: {card.cost}";
 
         if (levelTagText != null)
             levelTagText.text = $"Lvl {card.unlockLevel}";

@@ -26,8 +26,8 @@ public class LanManager : MonoBehaviour
     public bool IsHost { get; private set; }
     public bool IsClient { get; private set; }
     public bool IsConnected { get; private set; }
-    public bool InLobby { get; private set; }
-    public string RemotePlayerName { get; private set; } = "";
+    public bool InLobby { get; set; }
+    public string RemotePlayerName { get; set; } = "";
 
     // ---- Events (main thread) ----
     public event Action OnClientConnected;
